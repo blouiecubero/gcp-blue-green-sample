@@ -1,0 +1,42 @@
+steps:
+  # Build the application
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'compute'
+      - 'instance-templates'
+      - 'create'
+      - 'app-template-${_VERSION}'
+      - '--machine-type=f1-micro'
+      - '--region=us-central1'
+      - '--tags=http-server'
+      - '--metadata=startup-script=#! /bin/bash
+        apt-get update
+        apt-get install -y nginx
+        cp /workspace/index.html /var/www/html/index.html
+        systemctl restart nginx'
+
+  # Create a new managed instance group
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'compute'
+      - 'instance-groups'
+      - 'managed'
+      - 'create'
+      - 'app-mig-${_VERSION}'
+      - '--template=app-template-${_VERSION}'
+      - '--size=2'
+      - '--region=us-central1'
+
+  # Update the load balancer backend service
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'compute'
+      - 'backend-services'
+      - 'update'
+      - 'app-backend-service'
+      - '--region=us-central1'
+      - '--instance-group=app-mig-${_VERSION}'
+      - '--instance-group-region=us-central1'
+
+substitutions:
+  _VERSION: ${SHORT_SHA} 
